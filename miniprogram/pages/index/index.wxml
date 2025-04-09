@@ -1,0 +1,23 @@
+<!--index.wxml-->
+<view class="container">
+  <view class="chat-container">
+    <scroll-view scroll-y="true" class="chat-list" scroll-into-view="{{lastMessageId}}">
+      <block wx:for="{{messages}}" wx:key="id">
+        <view id="msg-{{item.id}}" class="message {{item.type === 'user' ? 'user' : 'assistant'}}">
+          <view class="avatar {{item.type === 'user' ? 'user-avatar' : 'assistant-avatar'}}">
+            {{item.type === 'user' ? '我' : 'AI'}}
+          </view>
+          <view class="content">{{item.content}}</view>
+        </view>
+      </block>
+    </scroll-view>
+  </view>
+  
+  <view class="input-container">
+    <input class="text-input" value="{{inputText}}" bindinput="onInputChange" placeholder="请输入文字..." />
+    <button class="send-button" bindtap="sendTextMessage">发送</button>
+    <button class="voice-button" bindtouchstart="startRecording" bindtouchend="stopRecording">
+      {{isRecording ? '松开结束' : '按住说话'}}
+    </button>
+  </view>
+</view>
