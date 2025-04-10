@@ -11,14 +11,6 @@
   "style": "v2",
   "sitemapLocation": "sitemap.json",
   "lazyCodeLoading": "requiredComponents",
-  "permission": {
-    "scope.userLocation": {
-      "desc": "您的位置信息将用于获取周边服务"
-    },
-    "scope.record": {
-      "desc": "录音权限用于语音交互功能"
-    }
-  },
   "requiredBackgroundModes": [
     "audio"
   ]

@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "openapi": [],
+    "network": {
+      "egress": {
+        "action": "allow",
+        "destinations": [
+          "iat-api.xfyun.cn",
+          "*.xfyun.cn"
+        ]
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 // speechToText/index.js
 const cloud = require('wx-server-sdk');
-const axios = require('axios');
 const crypto = require('crypto');
+const axios = require('axios');
 
 // 初始化云环境
 cloud.init({
@@ -24,89 +24,140 @@ exports.main = async (event, context) => {
     
     console.log("音频数据长度:", base64Audio.length);
     
-    // 读取环境变量
+    // 从环境变量获取配置
     const appId = process.env.XUNFEI_APP_ID;
     const apiKey = process.env.XUNFEI_API_KEY;
     const apiSecret = process.env.XUNFEI_API_SECRET;
-    const host = process.env.XUNFEI_API_HOST || "iat-api.xfyun.cn";
+    
+    console.log("API配置检查:");
+    console.log("- AppID:", appId ? "已设置" : "未设置");
+    console.log("- API Key:", apiKey ? "已设置" : "未设置");
+    console.log("- API Secret:", apiSecret ? "已设置" : "未设置");
     
     if (!appId || !apiKey || !apiSecret) {
-      throw new Error("讯飞API配置缺失");
+      return {
+        success: false,
+        error: "讯飞API配置缺失"
+      };
     }
     
-    // 构建认证URL
-    const authUrl = buildXunfeiAuthUrl(host, apiKey, apiSecret);
-    console.log("已构建认证URL");
+    // 使用讯飞HTTP接口
+    // API文档: https://www.xfyun.cn/doc/asr/voicedictation/API.html
+    const host = "iat-api.xfyun.cn";
+    const path = "/v2/iat";
+    const url = `https://${host}${path}`;
     
-    // 构建请求体
+    // 获取当前UTC时间
+    const date = new Date().toUTCString();
+    console.log("请求时间:", date);
+    
+    // 构建签名
+    const signature = buildSignature(host, date, path, apiSecret);
+    console.log("生成的签名:", signature.substring(0, 10) + "...");
+    
+    // 构建认证字符串
+    const authorizationOrigin = `api_key="${apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
+    const authorization = Buffer.from(authorizationOrigin).toString('base64');
+    
+    // 构建请求头
+    const headers = {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "Host": host,
+      "Date": date,
+      "Authorization": authorization
+    };
+    
+    // 构建请求参数
     const requestBody = {
-      app_id: appId,
-      format: 'wav', // 音频格式，可根据实际情况调整
-      audio: base64Audio,
+      common: {
+        app_id: appId
+      },
       business: {
-        language: 'zh_cn', // 中文
-        domain: 'iat',     // 日常用语
-        accent: 'mandarin', // 普通话
-        vad_eos: 3000      // 静默检测（毫秒）
+        language: "zh_cn",
+        domain: "iat",
+        accent: "mandarin",
+        dwa: "wpgs", // 开启动态修正结果
+        vad_eos: 3000 // 静默检测阈值，单位毫秒
+      },
+      data: {
+        format: "audio/wav", // 音频格式
+        encoding: "raw",     // raw表示原生音频数据
+        audio: base64Audio   // Base64编码的音频数据
       }
     };
     
-    // 发送请求
-    console.log("正在发送讯飞API请求...");
-    const response = await axios.post(authUrl, requestBody, {
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      timeout: 15000 // 15秒超时
-    });
+    console.log("发送请求到讯飞API...");
+    console.log("请求地址:", url);
+    console.log("请求头:", JSON.stringify(headers, null, 2).substring(0, 200) + "...");
+    console.log("请求体结构:", JSON.stringify({
+      common: requestBody.common,
+      business: requestBody.business,
+      data: {
+        format: requestBody.data.format,
+        encoding: requestBody.data.encoding,
+        audio: "BASE64_DATA_TOO_LONG_TO_PRINT"
+      }
+    }, null, 2));
     
-    // 解析结果
+    // 发送请求
+    const response = await axios.post(url, requestBody, { headers });
+    
     console.log("讯飞API响应状态:", response.status);
-    if (response.data && response.data.code === 0 && response.data.data) {
-      const result = response.data.data.result || "";
-      console.log("识别结果:", result);
+    console.log("讯飞API响应头:", JSON.stringify(response.headers));
+    console.log("讯飞API响应体:", JSON.stringify(response.data));
+    
+    // 处理响应
+    if (response.status === 200 && response.data && response.data.code === 0) {
+      // 提取识别结果
+      let recognizedText = "";
+      
+      if (response.data.data && response.data.data.result) {
+        recognizedText = response.data.data.result;
+      }
+      
+      console.log("识别结果文本:", recognizedText);
       
       return {
         success: true,
-        result: result
+        result: recognizedText
       };
     } else {
-      console.error("讯飞API返回错误:", response.data);
+      const errorMsg = response.data ? `错误码: ${response.data.code}, 错误信息: ${response.data.message}` : "未知错误";
+      console.error("讯飞API返回错误:", errorMsg);
+      
       return {
         success: false,
-        error: `语音识别失败: ${response.data.message || "未知错误"}`
+        error: `语音识别失败: ${errorMsg}`
       };
     }
   } catch (error) {
     console.error("语音识别处理异常:", error);
+    
+    let errorDetails = error.message || "未知错误";
+    
+    // 增强错误日志
+    if (error.response) {
+      console.error("HTTP状态:", error.response.status);
+      console.error("响应头:", JSON.stringify(error.response.headers));
+      console.error("响应体:", JSON.stringify(error.response.data));
+      errorDetails = `HTTP ${error.response.status}: ${JSON.stringify(error.response.data)}`;
+    }
+    
     return {
       success: false,
-      error: error.message || "语音识别服务异常"
+      error: `语音识别服务异常: ${errorDetails}`
     };
   }
 };
 
-// 构建讯飞API认证URL
-function buildXunfeiAuthUrl(host, apiKey, apiSecret) {
-  const path = "/v2/iat";
-  
-  // 当前UTC时间
-  const date = new Date().toUTCString();
-  
+// 构建签名 - 严格按照讯飞文档要求
+function buildSignature(host, date, path, apiSecret) {
   // 构建签名字符串
   const signatureOrigin = `host: ${host}\ndate: ${date}\nGET ${path} HTTP/1.1`;
   
   // 使用HMAC-SHA256生成签名
   const hmac = crypto.createHmac('sha256', apiSecret);
   hmac.update(signatureOrigin);
-  const signature = hmac.digest('base64');
-  
-  // 构建认证字符串
-  const authorizationOrigin = `api_key="${apiKey}", algorithm="hmac-sha256", headers="host date request-line", signature="${signature}"`;
-  const authorization = Buffer.from(authorizationOrigin).toString('base64');
-  
-  // 构建完整URL
-  const url = `https://${host}${path}?authorization=${encodeURIComponent(authorization)}&date=${encodeURIComponent(date)}&host=${encodeURIComponent(host)}`;
-  
-  return url;
+  return hmac.digest('base64');
 }

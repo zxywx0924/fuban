@@ -3,5 +3,6 @@
   "projectname": "FuBan",
   "setting": {
     "compileHotReLoad": true
-  }
+  },
+  "libVersion": "3.8.0"
 }
