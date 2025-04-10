@@ -1,0 +1,16 @@
+{
+  "name": "speechtotext",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "语音识别云函数",
+  "dependencies": {
+    "wx-server-sdk": "latest",
+    "axios": "^0.27.2",
+    "crypto": "^1.0.1"
+  }
+}

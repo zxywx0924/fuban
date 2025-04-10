@@ -1,0 +1,14 @@
+{
+  "name": "updatereminder",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "更新提醒状态云函数",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
